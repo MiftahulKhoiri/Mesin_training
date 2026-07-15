@@ -1,5 +1,5 @@
 // ============================================================
-// src/batch_norm_layer.cpp
+// src/batch_norm_layer.cpp  (DIPERBARUI — hanya signature backward/forward)
 // ============================================================
 #include "batch_norm_layer.h"
 #include <cmath>
@@ -26,7 +26,6 @@ Matrix BatchNormLayer::forward(const Matrix& input, bool training) {
     if (training) {
         input_cache_ = input;
 
-        // Mean & variance per kolom (per feature), dihitung lintas baris (batch)
         Matrix mean(1, num_features_, 0.0f);
         Matrix var(1, num_features_, 0.0f);
 
@@ -57,7 +56,6 @@ Matrix BatchNormLayer::forward(const Matrix& input, bool training) {
         }
         normalized_cache_ = x_hat;
 
-        // Update running stats (dipakai nanti saat training=false / inferensi)
         for (size_t j = 0; j < num_features_; ++j) {
             running_mean_.at(0, j) = momentum_ * running_mean_.at(0, j) + (1.0f - momentum_) * mean.at(0, j);
             running_var_.at(0, j) = momentum_ * running_var_.at(0, j) + (1.0f - momentum_) * var.at(0, j);
@@ -75,7 +73,9 @@ Matrix BatchNormLayer::forward(const Matrix& input, bool training) {
     return output;
 }
 
-Matrix BatchNormLayer::backward(const Matrix& grad_output) {
+Matrix BatchNormLayer::backward(const Matrix& grad_output, bool /*combined_with_loss*/) {
+    // combined_with_loss tidak relevan untuk BatchNorm (bukan layer output/aktivasi),
+    // parameter tetap ada demi kecocokan dengan LayerBase.
     if (input_cache_.rows() == 0) {
         throw std::logic_error("BatchNormLayer::backward: dipanggil tanpa forward(training=true) sebelumnya");
     }
@@ -83,7 +83,6 @@ Matrix BatchNormLayer::backward(const Matrix& grad_output) {
     size_t N = input_cache_.rows();
     Scalar n = static_cast<Scalar>(N);
 
-    // Gradien gamma & beta: jumlah lintas batch
     grad_gamma_ = Matrix(1, num_features_, 0.0f);
     grad_beta_ = Matrix(1, num_features_, 0.0f);
     for (size_t j = 0; j < num_features_; ++j) {
@@ -96,7 +95,6 @@ Matrix BatchNormLayer::backward(const Matrix& grad_output) {
         grad_beta_.at(0, j) = sum_gb;
     }
 
-    // Backprop standar batch norm (per fitur/kolom)
     Matrix grad_input(N, num_features_);
     for (size_t j = 0; j < num_features_; ++j) {
         Scalar var_j = batch_var_cache_.at(0, j);
