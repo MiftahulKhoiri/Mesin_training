@@ -1,34 +1,22 @@
 // ============================================================
-// include/dense_layer.h
+// include/dense_layer.h  (DIPERBARUI)
 // ============================================================
 #pragma once
 #include "matrix_ops.h"
 #include "activations.h"
+#include "layer_base.h"
 
-class DenseLayer {
+class DenseLayer : public LayerBase {
 public:
     DenseLayer(size_t input_size, size_t output_size, ActivationType activation, unsigned seed = 42);
 
-    Matrix forward(const Matrix& input);
+    Matrix forward(const Matrix& input, bool training) override;
+    Matrix backward(const Matrix& grad_output, bool combined_with_loss) override;
+    void update(Scalar learning_rate) override;
 
-    // Backward pass: terima gradien dari layer berikutnya / loss (d_loss/d_output).
-    //
-    // combined_with_loss: set true jika grad_output SUDAH merupakan gradien
-    // gabungan aktivasi+loss (mis. hasil SoftmaxCrossEntropy::derivative yang
-    // sudah = probs - targets, atau kombinasi Sigmoid+BCE serupa). Dalam kasus
-    // ini turunan aktivasi TIDAK dihitung ulang di sini.
-    //
-    // Jika false, turunan aktivasi dihitung normal lewat Activation::derivative.
-    // Softmax TIDAK mendukung mode ini (Jacobian penuh belum diimplementasikan) —
-    // jika activation_ == Softmax dan combined_with_loss == false, akan throw.
-    Matrix backward(const Matrix& grad_output, bool combined_with_loss = false);
-
-    void update(Scalar learning_rate);
-
-    size_t input_size() const { return weights_.rows(); }
-    size_t output_size() const { return weights_.cols(); }
-// Tambahkan di bagian public DenseLayer (dense_layer.h), setelah output_size():
-    ActivationType activation_type() const { return activation_; }
+    size_t input_size() const override { return weights_.rows(); }
+    size_t output_size() const override { return weights_.cols(); }
+    ActivationType activation_type() const override { return activation_; }
 
     Matrix& weights() { return weights_; }
     Matrix& bias() { return bias_; }
