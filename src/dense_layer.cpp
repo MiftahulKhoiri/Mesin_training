@@ -1,5 +1,5 @@
 // ============================================================
-// src/dense_layer.cpp
+// src/dense_layer.cpp  (DIPERBARUI — hanya signature yang berubah)
 // ============================================================
 #include "dense_layer.h"
 #include <cmath>
@@ -14,14 +14,16 @@ DenseLayer::DenseLayer(size_t input_size, size_t output_size, ActivationType act
 {
     Scalar stddev;
     if (activation == ActivationType::ReLU || activation == ActivationType::LeakyReLU) {
-        stddev = std::sqrt(2.0f / static_cast<Scalar>(input_size)); // He init
+        stddev = std::sqrt(2.0f / static_cast<Scalar>(input_size));
     } else {
-        stddev = std::sqrt(1.0f / static_cast<Scalar>(input_size)); // Xavier
+        stddev = std::sqrt(1.0f / static_cast<Scalar>(input_size));
     }
     weights_ = Matrix::random_normal(input_size, output_size, 0.0f, stddev, seed);
 }
 
-Matrix DenseLayer::forward(const Matrix& input) {
+Matrix DenseLayer::forward(const Matrix& input, bool /*training*/) {
+    // DenseLayer belum punya perilaku berbeda train/inferensi (baru relevan
+    // kalau nanti ditambah Dropout). Parameter tetap ada demi konsistensi LayerBase.
     input_cache_ = input;
 
     Matrix z = input * weights_;
@@ -35,15 +37,11 @@ Matrix DenseLayer::backward(const Matrix& grad_output, bool combined_with_loss) 
     Matrix grad_z;
 
     if (combined_with_loss) {
-        // Turunan aktivasi sudah tergabung di grad_output oleh loss function
-        // (kontrak ini harus dijaga konsisten oleh pemanggil, mis. trainer.cpp)
         grad_z = grad_output;
     } else if (activation_ == ActivationType::Softmax) {
         throw std::logic_error(
             "DenseLayer::backward: Softmax berdiri sendiri (bukan combined_with_loss) "
-            "belum didukung — Jacobian softmax penuh belum diimplementasikan. "
-            "Pasangkan dengan loss yang sesuai (mis. SoftmaxCrossEntropy) dan "
-            "panggil backward(grad_output, /*combined_with_loss=*/true).");
+            "belum didukung — pasangkan dengan loss yang sesuai dan set combined_with_loss=true.");
     } else {
         Matrix act_deriv = Activation::derivative(z_cache_, activation_);
         grad_z = grad_output.hadamard(act_deriv);
