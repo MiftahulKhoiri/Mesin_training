@@ -1,23 +1,20 @@
 // ============================================================
-// include/batch_norm_layer.h
+// include/batch_norm_layer.h  (DIPERBARUI)
 // ============================================================
 #pragma once
 #include "matrix_ops.h"
+#include "layer_base.h"
 
-class BatchNormLayer {
+class BatchNormLayer : public LayerBase {
 public:
     explicit BatchNormLayer(size_t num_features, Scalar momentum = 0.9f, Scalar epsilon = 1e-5f);
 
-    // training=true: hitung mean/var dari batch saat ini & update running stats.
-    // training=false (mode inferensi): pakai running_mean_/running_var_ yang sudah terkumpul.
-    Matrix forward(const Matrix& input, bool training);
+    Matrix forward(const Matrix& input, bool training) override;
+    Matrix backward(const Matrix& grad_output, bool combined_with_loss) override;
+    void update(Scalar learning_rate) override;
 
-    // Backward hanya valid dipanggil setelah forward(..., training=true)
-    Matrix backward(const Matrix& grad_output);
-
-    void update(Scalar learning_rate);
-
-    size_t num_features() const { return num_features_; }
+    size_t input_size() const override { return num_features_; }
+    size_t output_size() const override { return num_features_; }
 
     Matrix& gamma() { return gamma_; }
     Matrix& beta() { return beta_; }
@@ -29,15 +26,13 @@ private:
     Scalar momentum_;
     Scalar epsilon_;
 
-    Matrix gamma_;         // 1 x num_features, scale (learnable)
-    Matrix beta_;          // 1 x num_features, shift (learnable)
+    Matrix gamma_;
+    Matrix beta_;
+    Matrix running_mean_;
+    Matrix running_var_;
 
-    Matrix running_mean_;  // 1 x num_features, dipakai saat training=false
-    Matrix running_var_;   // 1 x num_features
-
-    // Cache untuk backward (diisi ulang tiap forward saat training=true)
     Matrix input_cache_;
-    Matrix normalized_cache_; // x_hat
+    Matrix normalized_cache_;
     Matrix batch_mean_cache_;
     Matrix batch_var_cache_;
 
