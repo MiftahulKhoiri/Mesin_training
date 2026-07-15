@@ -27,6 +27,8 @@ public:
 
     size_t input_size() const { return weights_.rows(); }
     size_t output_size() const { return weights_.cols(); }
+// Tambahkan di bagian public DenseLayer (dense_layer.h), setelah output_size():
+    ActivationType activation_type() const { return activation_; }
 
     Matrix& weights() { return weights_; }
     Matrix& bias() { return bias_; }
