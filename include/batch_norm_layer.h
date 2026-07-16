@@ -1,7 +1,9 @@
 // ============================================================
-// include/batch_norm_layer.h  (DIPERBARUI)
+// include/batch_norm_layer.h  (LENGKAP)
 // ============================================================
 #pragma once
+#include <memory>
+#include <istream>
 #include "matrix_ops.h"
 #include "layer_base.h"
 
@@ -18,8 +20,14 @@ public:
 
     Matrix& gamma() { return gamma_; }
     Matrix& beta() { return beta_; }
+    Matrix& running_mean() { return running_mean_; }
+    Matrix& running_var() { return running_var_; }
     const Matrix& gamma_grad() const { return grad_gamma_; }
     const Matrix& beta_grad() const { return grad_beta_; }
+
+    std::string layer_type() const override { return "BatchNorm"; }
+    void save(std::ostream& os) const override;
+    static std::unique_ptr<BatchNormLayer> load(std::istream& is);
 
 private:
     size_t num_features_;
