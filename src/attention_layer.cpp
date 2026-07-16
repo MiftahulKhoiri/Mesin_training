@@ -1,5 +1,5 @@
 // ============================================================
-// src/attention_layer.cpp  (DIPERBARUI)
+// src/attention_layer.cpp  (LENGKAP)
 // ============================================================
 #include "attention_layer.h"
 #include <cmath>
@@ -78,13 +78,12 @@ Tensor3D AttentionLayer::forward(const Tensor3D& input) {
             Matrix Kh = extract_head_cols(Kb, h, head_dim_);
             Matrix Vh = extract_head_cols(Vb, h, head_dim_);
 
-            Matrix weights = compute_attn_weights(Qh, Kh, seq_len); // dipakai lokal, TIDAK disimpan
+            Matrix weights = compute_attn_weights(Qh, Kh, seq_len);
             Matrix head_out = weights * Vh;
             write_head_cols(concat, h, head_dim_, head_out);
         }
         concat_output_cache_.set_batch(b, concat);
     }
-
     return concat_output_cache_.batched_matmul(W_o_);
 }
 
@@ -127,9 +126,7 @@ Tensor3D AttentionLayer::backward(const Tensor3D& grad_output) {
             Matrix Kh = extract_head_cols(Kb, h, head_dim_);
             Matrix Vh = extract_head_cols(Vb, h, head_dim_);
 
-            // Rekomputasi weights (bukan baca dari cache) — trade-off memori vs compute
             Matrix weights = compute_attn_weights(Qh, Kh, seq_len);
-
             Matrix d_head_out = extract_head_cols(grad_concat_b, h, head_dim_);
 
             Matrix dWeights = d_head_out * Vh.transpose();
@@ -172,4 +169,18 @@ void AttentionLayer::update(Scalar learning_rate) {
     W_k_.sub_inplace(grad_W_k_.scale(learning_rate));
     W_v_.sub_inplace(grad_W_v_.scale(learning_rate));
     W_o_.sub_inplace(grad_W_o_.scale(learning_rate));
+}
+
+void AttentionLayer::save(std::ostream& os) const {
+    W_q_.save(os);
+    W_k_.save(os);
+    W_v_.save(os);
+    W_o_.save(os);
+}
+
+void AttentionLayer::load_weights(std::istream& is) {
+    W_q_ = Matrix::load(is);
+    W_k_ = Matrix::load(is);
+    W_v_ = Matrix::load(is);
+    W_o_ = Matrix::load(is);
 }
