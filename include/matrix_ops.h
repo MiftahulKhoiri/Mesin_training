@@ -7,6 +7,8 @@
 #include <random>
 #include <cmath>
 #include <cstring>
+#include <ostream>
+#include <istream>
 
 #ifdef USE_OPENBLAS
 extern "C" {
@@ -40,7 +42,8 @@ public:
 
     void add_inplace(const Matrix& other);
     void sub_inplace(const Matrix& other);
-
+    void save(std::ostream& os) const;
+static Matrix load(std::istream& is);
     Matrix add_row_vector(const Matrix& row_vec) const;
 
     Matrix sum_rows() const;
