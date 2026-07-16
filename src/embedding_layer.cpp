@@ -74,3 +74,12 @@ void EmbeddingLayer::backward(const Tensor3D& grad_output, const Matrix& token_i
 void EmbeddingLayer::update(Scalar learning_rate) {
     embedding_table_.sub_inplace(grad_embedding_table_.scale(learning_rate));
 }
+// ============================================================
+// src/embedding_layer.cpp — TAMBAHAN (masukkan setelah update())
+// ============================================================
+void EmbeddingLayer::accumulate_external_grad(const Matrix& grad) {
+    if (grad.rows() != vocab_size_ || grad.cols() != embed_dim_) {
+        throw std::invalid_argument("EmbeddingLayer::accumulate_external_grad: shape tidak cocok");
+    }
+    grad_embedding_table_.add_inplace(grad);
+}
