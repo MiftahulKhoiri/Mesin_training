@@ -4,6 +4,8 @@
 #pragma once
 #include "matrix_ops.h"
 #include "activations.h"
+#include <string>
+#include <ostream>
 
 class LayerBase {
 public:
@@ -27,3 +29,5 @@ public:
     // combined_with_loss otomatis di NeuralNetwork. DenseLayer meng-override ini.
     virtual ActivationType activation_type() const { return ActivationType::Linear; }
 };
+    virtual std::string layer_type() const = 0;   // "Dense" | "BatchNorm" — dipakai saat load untuk dispatch
+    virtual void save(std::ostream& os) const = 0; // hanya parameter yang dipelajari, bukan cache/gradien
