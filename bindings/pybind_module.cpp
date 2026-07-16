@@ -20,7 +20,6 @@ namespace py = pybind11;
 
 using NpFloatArray = py::array_t<float, py::array::c_style | py::array::forcecast>;
 
-// --- Konversi numpy (float32, C-contiguous) <-> Matrix / Tensor3D ---
 static Matrix numpy_to_matrix(NpFloatArray arr) {
     if (arr.ndim() != 2) throw std::invalid_argument("Diharapkan array numpy 2D untuk Matrix");
     size_t rows = static_cast<size_t>(arr.shape(0));
@@ -61,7 +60,6 @@ static py::array_t<float> tensor3d_to_numpy(const Tensor3D& t) {
 PYBIND11_MODULE(ml_manual_cpp, m) {
     m.doc() = "ml_manual_cpp: neural network dari nol di C++ (MLP + Transformer), binding Python via pybind11";
 
-    // --- Enums ---
     py::enum_<ActivationType>(m, "ActivationType")
         .value("ReLU", ActivationType::ReLU)
         .value("LeakyReLU", ActivationType::LeakyReLU)
@@ -75,7 +73,6 @@ PYBIND11_MODULE(ml_manual_cpp, m) {
         .value("BinaryCrossEntropy", LossType::BinaryCrossEntropy)
         .value("SoftmaxCrossEntropy", LossType::SoftmaxCrossEntropy);
 
-    // --- NeuralNetwork (MLP) ---
     py::class_<NeuralNetwork>(m, "NeuralNetwork")
         .def(py::init<LossType>())
         .def("add_dense_layer", &NeuralNetwork::add_dense_layer,
@@ -92,9 +89,10 @@ PYBIND11_MODULE(ml_manual_cpp, m) {
             self.backward(numpy_to_matrix(predictions), numpy_to_matrix(targets));
         })
         .def("update", &NeuralNetwork::update)
-        .def("num_layers", &NeuralNetwork::num_layers);
+        .def("num_layers", &NeuralNetwork::num_layers)
+        .def("save_checkpoint", &NeuralNetwork::save_checkpoint)
+        .def_static("load_checkpoint", &NeuralNetwork::load_checkpoint);
 
-    // --- Trainer (MLP) ---
     py::class_<TrainConfig>(m, "TrainConfig")
         .def(py::init<>())
         .def_readwrite("epochs", &TrainConfig::epochs)
@@ -116,7 +114,6 @@ PYBIND11_MODULE(ml_manual_cpp, m) {
             return self.fit(numpy_to_matrix(inputs), numpy_to_matrix(targets));
         });
 
-    // --- SequenceModel (Transformer) ---
     py::class_<SequenceModel>(m, "SequenceModel")
         .def(py::init<size_t, size_t, size_t, size_t, size_t, size_t, bool, unsigned>(),
              py::arg("vocab_size"), py::arg("embed_dim"), py::arg("num_heads"),
@@ -125,11 +122,10 @@ PYBIND11_MODULE(ml_manual_cpp, m) {
         .def("forward", [](SequenceModel& self, NpFloatArray token_ids) {
             return tensor3d_to_numpy(self.forward(numpy_to_matrix(token_ids)));
         })
-        .def("update", &SequenceModel::update);
-        // compute_loss/backward SequenceModel sengaja tidak diekspos langsung —
-        // dipakai lewat SequenceTrainer.fit() supaya API Python tetap simpel.
+        .def("update", &SequenceModel::update)
+        .def("save_checkpoint", &SequenceModel::save_checkpoint)
+        .def_static("load_checkpoint", &SequenceModel::load_checkpoint);
 
-    // --- SequenceTrainer ---
     py::class_<SequenceTrainConfig>(m, "SequenceTrainConfig")
         .def(py::init<>())
         .def_readwrite("epochs", &SequenceTrainConfig::epochs)
