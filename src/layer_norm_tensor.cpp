@@ -1,5 +1,5 @@
 // ============================================================
-// src/layer_norm_tensor.cpp  (FILE BARU)
+// src/layer_norm_tensor.cpp  (LENGKAP)
 // ============================================================
 #include "layer_norm_tensor.h"
 #include <cmath>
@@ -73,8 +73,7 @@ Tensor3D LayerNormTensor::backward(const Tensor3D& grad_output) {
             for (size_t f = 0; f < embed_dim_; ++f) {
                 Scalar dxhat = grad_output.at(b, s, f) * gamma_.at(0, f);
                 Scalar x_hat = normalized_cache_.at(b, s, f);
-                grad_input.at(b, s, f) = std_inv *
-                    (dxhat - sum_dxhat / D - x_hat * sum_dxhat_xhat / D);
+                grad_input.at(b, s, f) = std_inv * (dxhat - sum_dxhat / D - x_hat * sum_dxhat_xhat / D);
             }
         }
     }
@@ -84,4 +83,14 @@ Tensor3D LayerNormTensor::backward(const Tensor3D& grad_output) {
 void LayerNormTensor::update(Scalar learning_rate) {
     gamma_.sub_inplace(grad_gamma_.scale(learning_rate));
     beta_.sub_inplace(grad_beta_.scale(learning_rate));
+}
+
+void LayerNormTensor::save(std::ostream& os) const {
+    gamma_.save(os);
+    beta_.save(os);
+}
+
+void LayerNormTensor::load_weights(std::istream& is) {
+    gamma_ = Matrix::load(is);
+    beta_ = Matrix::load(is);
 }
