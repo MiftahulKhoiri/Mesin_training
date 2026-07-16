@@ -1,7 +1,9 @@
 // ============================================================
-// include/dense_layer.h  (DIPERBARUI)
+// include/dense_layer.h  (LENGKAP)
 // ============================================================
 #pragma once
+#include <memory>
+#include <istream>
 #include "matrix_ops.h"
 #include "activations.h"
 #include "layer_base.h"
@@ -22,6 +24,10 @@ public:
     Matrix& bias() { return bias_; }
     const Matrix& weight_grad() const { return grad_weights_; }
     const Matrix& bias_grad() const { return grad_bias_; }
+
+    std::string layer_type() const override { return "Dense"; }
+    void save(std::ostream& os) const override;
+    static std::unique_ptr<DenseLayer> load(std::istream& is);
 
 private:
     Matrix weights_;
