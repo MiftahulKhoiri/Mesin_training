@@ -2,19 +2,15 @@
 # training.py  (LENGKAP)
 # ============================================================
 import sys
-sys.path.append("build")  # sesuaikan kalau struktur build beda
+sys.path.append("build")
 
 import numpy as np
 import ml_manual_cpp as mlc
+from sample_data import generate_mlp_classification_data, generate_toy_token_stream, VOCAB_SIZE
 
 
 def train_mlp_example():
-    """Contoh training MLP untuk klasifikasi biner sederhana (data sintetis)."""
-    rng = np.random.default_rng(42)
-    n_samples = 500
-    X = rng.normal(size=(n_samples, 4)).astype(np.float32)
-    # label: 1 kalau jumlah fitur positif, 0 kalau tidak (target biner)
-    y = (X.sum(axis=1) > 0).astype(np.float32).reshape(-1, 1)
+    X, y = generate_mlp_classification_data(n_samples=500, seed=42)
 
     model = mlc.NeuralNetwork(mlc.LossType.BinaryCrossEntropy)
     model.add_dense_layer(4, 16, mlc.ActivationType.ReLU)
@@ -34,31 +30,30 @@ def train_mlp_example():
         val_str = f", val_loss={log.val_loss:.4f}" if log.val_loss >= 0 else ""
         print(f"[MLP] epoch {log.epoch + 1}: train_loss={log.train_loss:.4f}{val_str}")
 
+    model.save_checkpoint("mlp_checkpoint.bin")
+    print("  checkpoint disimpan: mlp_checkpoint.bin")
+
 
 def train_sequence_example():
-    """Contoh training SequenceModel (mini transformer) untuk next-token prediction
-    pada token stream sintetis (ganti dengan hasil tokenizer BPE asli untuk kasus nyata)."""
-    rng = np.random.default_rng(7)
-    vocab_size = 50
-    token_stream = rng.integers(0, vocab_size, size=(1, 2000)).astype(np.float32)
+    token_stream = generate_toy_token_stream(repeat=200)
 
     model = mlc.SequenceModel(
-        vocab_size=vocab_size,
+        vocab_size=VOCAB_SIZE,
         embed_dim=32,
         num_heads=4,
         ff_hidden_dim=64,
         num_layers=2,
-        max_seq_len=64,
+        max_seq_len=32,
         causal_mask=True,
     )
 
     config = mlc.SequenceTrainConfig()
-    config.epochs = 3
-    config.batch_size = 4
+    config.epochs = 5
+    config.batch_size = 8
     config.seq_len = 32
     config.learning_rate = 3e-4
     config.validation_split = 0.1
-    config.log_every_n_steps = 5
+    config.log_every_n_steps = 20
 
     trainer = mlc.SequenceTrainer(model, config)
     history = trainer.fit(token_stream)
@@ -66,6 +61,9 @@ def train_sequence_example():
     for log in history:
         val_str = f", val_loss={log.val_loss:.4f}" if log.val_loss >= 0 else ""
         print(f"[Sequence] epoch {log.epoch + 1}: train_loss={log.train_loss:.4f}{val_str}")
+
+    model.save_checkpoint("sequence_checkpoint.bin")
+    print("  checkpoint disimpan: sequence_checkpoint.bin")
 
 
 if __name__ == "__main__":
