@@ -29,6 +29,15 @@ public:
     Matrix& embedding_table() { return embedding_table_; }
     const Matrix& embedding_table_grad() const { return grad_embedding_table_; }
 
+// ============================================================
+// include/embedding_layer.h — TAMBAHAN (masukkan ke public section)
+// ============================================================
+// Tambahkan gradien eksternal ke grad_embedding_table_. Dipakai untuk weight
+// tying: gradien dari output projection yang berbagi bobot dengan embedding
+// table. WAJIB dipanggil SETELAH backward() (yang reset+isi gradien lookup),
+// dan SEBELUM update().
+void accumulate_external_grad(const Matrix& grad); // grad: vocab_size x embed_dim
+
 private:
     size_t vocab_size_, embed_dim_, max_seq_len_;
 
