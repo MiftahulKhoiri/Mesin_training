@@ -1,5 +1,5 @@
 // ============================================================
-// include/sequence_model.h  (FILE BARU)
+// include/sequence_model.h  (DIPERBARUI — weight tying + backward gabungan)
 // ============================================================
 #pragma once
 #include <vector>
@@ -16,14 +16,17 @@ public:
                   bool causal_mask = true, unsigned seed = 42);
 
     // token_ids: batch x seq_len -> logits: batch x seq_len x vocab_size
+    // Weight tying: proyeksi ke vocab pakai embedding_table_ langsung (tanpa matriks terpisah)
     Tensor3D forward(const Matrix& token_ids);
 
-    // target_ids: batch x seq_len, biasanya token_ids digeser satu posisi
-    // (next-token prediction). Loss = rata-rata cross-entropy semua token.
+    // Hanya untuk evaluasi/validasi TANPA backward (mis. saat tidak butuh update parameter).
+    // Kalau backward() akan dipanggil juga, jangan panggil ini dulu — pakai loss yang
+    // dikembalikan backward() supaya tidak menghitung softmax dua kali.
     Scalar compute_loss(const Tensor3D& logits, const Matrix& target_ids) const;
 
-    // Backward penuh dari loss sampai ke embedding table.
-    void backward(const Tensor3D& logits, const Matrix& target_ids, const Matrix& token_ids);
+    // Backward penuh + mengembalikan loss yang dihitung dalam proses yang sama
+    // (satu pass softmax per token, bukan dua kali seperti compute_loss+backward terpisah).
+    Scalar backward(const Tensor3D& logits, const Matrix& target_ids, const Matrix& token_ids);
 
     void update(Scalar learning_rate);
 
@@ -34,8 +37,5 @@ private:
     std::vector<TransformerBlock> blocks_;
     LayerNormTensor final_norm_;
 
-    Matrix output_projection_;       // embed_dim x vocab_size
-    Matrix grad_output_projection_;
-
-    Tensor3D last_hidden_cache_;     // hasil final_norm_, sebelum output_projection_
+    Tensor3D last_hidden_cache_; // hasil final_norm_, sebelum proyeksi ke vocab
 };
