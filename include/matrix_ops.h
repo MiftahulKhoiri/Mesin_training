@@ -1,5 +1,5 @@
 // ============================================================
-// include/matrix_ops.h
+// include/matrix_ops.h  (LENGKAP)
 // ============================================================
 #pragma once
 #include <vector>
@@ -16,7 +16,7 @@ extern "C" {
 }
 #endif
 
-using Scalar = float; // ganti ke double di satu tempat ini kalau perlu presisi lebih tinggi
+using Scalar = float;
 
 class Matrix {
 public:
@@ -29,21 +29,19 @@ public:
     size_t rows() const { return rows_; }
     size_t cols() const { return cols_; }
 
-    // Akses pointer mentah untuk BLAS / SIMD
     Scalar* data() { return data_.data(); }
     const Scalar* data() const { return data_.data(); }
 
     Matrix operator+(const Matrix& other) const;
     Matrix operator-(const Matrix& other) const;
-    Matrix operator*(const Matrix& other) const;      // matrix multiply (blocked / BLAS)
+    Matrix operator*(const Matrix& other) const;
     Matrix hadamard(const Matrix& other) const;
     Matrix transpose() const;
     Matrix scale(Scalar scalar) const;
 
     void add_inplace(const Matrix& other);
     void sub_inplace(const Matrix& other);
-    void save(std::ostream& os) const;
-static Matrix load(std::istream& is);
+
     Matrix add_row_vector(const Matrix& row_vec) const;
 
     Matrix sum_rows() const;
@@ -56,13 +54,16 @@ static Matrix load(std::istream& is);
     void fill(Scalar val);
     void print() const;
 
+    // Checkpoint I/O — hanya dims + data mentah, tanpa versioning (lihat catatan di sequence_model)
+    void save(std::ostream& os) const;
+    static Matrix load(std::istream& is);
+
 private:
     size_t rows_, cols_;
-    std::vector<Scalar> data_; // row-major, contiguous (siap untuk BLAS/SIMD)
+    std::vector<Scalar> data_;
 
     inline size_t idx(size_t r, size_t c) const { return r * cols_ + c; }
     void check_same_shape(const Matrix& other, const char* op) const;
 
-    // Matmul naif dengan cache-blocking (dipakai jika USE_OPENBLAS tidak aktif)
     static Matrix matmul_blocked(const Matrix& a, const Matrix& b);
 };
