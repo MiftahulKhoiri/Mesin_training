@@ -29,6 +29,24 @@ void Matrix::check_same_shape(const Matrix& other, const char* op) const {
     }
 }
 
+// ============================================================
+// src/matrix_ops.cpp — TAMBAHAN
+// ============================================================
+void Matrix::save(std::ostream& os) const {
+    os.write(reinterpret_cast<const char*>(&rows_), sizeof(rows_));
+    os.write(reinterpret_cast<const char*>(&cols_), sizeof(cols_));
+    os.write(reinterpret_cast<const char*>(data_.data()), sizeof(Scalar) * data_.size());
+}
+
+Matrix Matrix::load(std::istream& is) {
+    size_t r, c;
+    is.read(reinterpret_cast<char*>(&r), sizeof(r));
+    is.read(reinterpret_cast<char*>(&c), sizeof(c));
+    Matrix m(r, c);
+    is.read(reinterpret_cast<char*>(m.data()), sizeof(Scalar) * r * c);
+    return m;
+}
+
 Matrix Matrix::operator+(const Matrix& other) const {
     check_same_shape(other, "operator+");
     Matrix result(rows_, cols_);
