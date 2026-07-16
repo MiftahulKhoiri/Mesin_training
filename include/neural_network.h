@@ -1,6 +1,4 @@
-// ============================================================
-// include/neural_network.h  (LENGKAP)
-// ============================================================
+// include/neural_network.h
 #pragma once
 #include <vector>
 #include <memory>
@@ -15,6 +13,12 @@
 class NeuralNetwork {
 public:
     explicit NeuralNetwork(LossType loss_type);
+
+    // ⬇️ Operasi move & copy ⬇️
+    NeuralNetwork(NeuralNetwork&&) = default;
+    NeuralNetwork& operator=(NeuralNetwork&&) = default;
+    NeuralNetwork(const NeuralNetwork&) = delete;
+    NeuralNetwork& operator=(const NeuralNetwork&) = delete;
 
     void add_dense_layer(size_t input_size, size_t output_size, ActivationType activation, unsigned seed = 42);
     void add_batch_norm_layer(Scalar momentum = 0.9f, Scalar epsilon = 1e-5f);
