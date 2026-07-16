@@ -1,8 +1,10 @@
 // ============================================================
-// include/attention_layer.h  (DIPERBARUI — attn_weights_cache_ dihapus)
+// include/attention_layer.h  (LENGKAP)
 // ============================================================
 #pragma once
 #include <vector>
+#include <ostream>
+#include <istream>
 #include "matrix_ops.h"
 #include "tensor3d.h"
 #include "activations.h"
@@ -19,6 +21,9 @@ public:
     size_t num_heads() const { return num_heads_; }
     size_t head_dim() const { return head_dim_; }
 
+    void save(std::ostream& os) const;
+    void load_weights(std::istream& is);
+
 private:
     size_t embed_dim_, num_heads_, head_dim_;
     bool causal_mask_;
@@ -26,8 +31,7 @@ private:
     Matrix W_q_, W_k_, W_v_, W_o_;
     Matrix grad_W_q_, grad_W_k_, grad_W_v_, grad_W_o_;
 
-    // Cache untuk backward. attn_weights TIDAK di-cache lagi (lihat backward()) —
-    // direkomputasi dari Q_cache_/K_cache_ untuk menghemat memori O(batch*heads*seq^2).
+    // attn_weights TIDAK di-cache — direkomputasi saat backward (hemat memori O(batch*heads*seq^2))
     Tensor3D input_cache_;
     Tensor3D Q_cache_, K_cache_, V_cache_;
     Tensor3D concat_output_cache_;
@@ -35,8 +39,5 @@ private:
     static Matrix init_projection_weight(size_t dim, unsigned seed);
     static Matrix extract_head_cols(const Matrix& full, size_t head_idx, size_t head_dim);
     static void write_head_cols(Matrix& full, size_t head_idx, size_t head_dim, const Matrix& head_data);
-
-    // Hitung ulang attention weights (scores -> mask -> softmax) untuk satu head satu batch.
-    // Dipakai baik di forward() maupun backward() supaya logikanya tidak terduplikasi dua cara berbeda.
     Matrix compute_attn_weights(const Matrix& Qh, const Matrix& Kh, size_t seq_len) const;
 };
