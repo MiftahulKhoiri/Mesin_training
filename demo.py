@@ -1,102 +1,63 @@
 # ============================================================
-# demo.py  (FILE BARU)
+# demo.py  (DIPERBARUI — load checkpoint, tidak training ulang)
 # ============================================================
+import os
 import sys
 sys.path.append("build")
 
 import numpy as np
 import ml_manual_cpp as mlc
-from sample_data import (
-    generate_mlp_classification_data,
-    generate_toy_token_stream,
-    encode_text,
-    decode_tokens,
-    VOCAB_SIZE,
-)
+from sample_data import encode_text, decode_tokens, VOCAB_SIZE
+
+MLP_CHECKPOINT = "mlp_checkpoint.bin"
+SEQUENCE_CHECKPOINT = "sequence_checkpoint.bin"
 
 
 def demo_mlp():
-    """Latih MLP singkat, lalu tampilkan beberapa prediksi contoh."""
     print("=== Demo MLP ===")
-    X, y = generate_mlp_classification_data(n_samples=300, seed=1)
+    if not os.path.exists(MLP_CHECKPOINT):
+        print(f"  Checkpoint {MLP_CHECKPOINT} tidak ditemukan — jalankan training.py dulu.")
+        return
 
-    model = mlc.NeuralNetwork(mlc.LossType.BinaryCrossEntropy)
-    model.add_dense_layer(4, 16, mlc.ActivationType.ReLU)
-    model.add_dense_layer(16, 1, mlc.ActivationType.Sigmoid)
+    model = mlc.NeuralNetwork.load_checkpoint(MLP_CHECKPOINT)
 
-    config = mlc.TrainConfig()
-    config.epochs = 15
-    config.batch_size = 32
-    config.learning_rate = 0.05
-    config.verbose = False
+    from sample_data import generate_mlp_classification_data
+    X, y = generate_mlp_classification_data(n_samples=5, seed=99)
+    predictions = model.forward(X, False)  # training=False -> mode inferensi
 
-    trainer = mlc.Trainer(model, config)
-    trainer.fit(X, y)
-
-    sample = X[:5]
-    predictions = model.forward(sample, False)  # training=False -> mode inferensi
     for i in range(5):
-        print(f"  input={sample[i]} -> predicted={predictions[i][0]:.3f}, actual={y[i][0]:.0f}")
+        print(f"  input={X[i]} -> predicted={predictions[i][0]:.3f}, actual={y[i][0]:.0f}")
 
 
 def sample_next_token(logits_last_position, temperature=0.8):
-    """logits_last_position: array 1D (vocab_size,). Sampling dengan temperature scaling."""
     scaled = logits_last_position / max(temperature, 1e-6)
-    scaled = scaled - np.max(scaled)  # stabilitas numerik
+    scaled = scaled - np.max(scaled)
     probs = np.exp(scaled)
     probs = probs / probs.sum()
     return np.random.choice(len(probs), p=probs)
 
 
 def generate(model, prompt_ids, max_new_tokens, max_seq_len, temperature=0.8):
-    """Generasi autoregresif: prediksi token berikutnya berulang kali, append ke sequence.
-
-    prompt_ids: numpy array (1, N) float32 — hasil encode_text().
-    """
     tokens = prompt_ids.copy()
-
     for _ in range(max_new_tokens):
-        # Ambil context terakhir (maksimal max_seq_len token) — model tidak bisa
-        # melihat lebih jauh dari itu (dibatasi positional encoding saat training)
         context = tokens[:, -max_seq_len:]
-        logits = model.forward(context)          # (1, seq_len, vocab_size)
-        last_logits = logits[0, -1, :]            # logits posisi terakhir saja
-        next_id = sample_next_token(last_logits, temperature)
+        logits = model.forward(context)
+        next_id = sample_next_token(logits[0, -1, :], temperature)
         tokens = np.concatenate([tokens, np.array([[next_id]], dtype=np.float32)], axis=1)
-
     return tokens
 
 
 def demo_sequence():
-    """Latih SequenceModel singkat pada toy corpus, lalu generate teks baru."""
     print("\n=== Demo SequenceModel (text generation) ===")
-    token_stream = generate_toy_token_stream(repeat=200)
+    if not os.path.exists(SEQUENCE_CHECKPOINT):
+        print(f"  Checkpoint {SEQUENCE_CHECKPOINT} tidak ditemukan — jalankan training.py dulu.")
+        return
 
-    model = mlc.SequenceModel(
-        vocab_size=VOCAB_SIZE,
-        embed_dim=32,
-        num_heads=4,
-        ff_hidden_dim=64,
-        num_layers=2,
-        max_seq_len=32,
-        causal_mask=True,
-    )
-
-    config = mlc.SequenceTrainConfig()
-    config.epochs = 5
-    config.batch_size = 8
-    config.seq_len = 32
-    config.learning_rate = 3e-4
-    config.verbose = True
-    config.log_every_n_steps = 20
-
-    trainer = mlc.SequenceTrainer(model, config)
-    trainer.fit(token_stream)
+    model = mlc.SequenceModel.load_checkpoint(SEQUENCE_CHECKPOINT)
 
     prompt = encode_text("the cat")
     generated = generate(model, prompt, max_new_tokens=60, max_seq_len=32, temperature=0.7)
 
-    print("\nHasil generate:")
     print(f"  prompt   : {decode_tokens(prompt)!r}")
     print(f"  generated: {decode_tokens(generated)!r}")
 
