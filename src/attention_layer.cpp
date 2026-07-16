@@ -1,13 +1,12 @@
 // ============================================================
-// src/attention_layer.cpp  (FILE BARU)
+// src/attention_layer.cpp  (DIPERBARUI)
 // ============================================================
 #include "attention_layer.h"
 #include <cmath>
 #include <stdexcept>
-#include <limits>
 
 Matrix AttentionLayer::init_projection_weight(size_t dim, unsigned seed) {
-    Scalar stddev = std::sqrt(1.0f / static_cast<Scalar>(dim)); // Xavier sederhana
+    Scalar stddev = std::sqrt(1.0f / static_cast<Scalar>(dim));
     return Matrix::random_normal(dim, dim, 0.0f, stddev, seed);
 }
 
@@ -46,6 +45,18 @@ AttentionLayer::AttentionLayer(size_t embed_dim, size_t num_heads, bool causal_m
     grad_W_o_ = Matrix(embed_dim, embed_dim, 0.0f);
 }
 
+Matrix AttentionLayer::compute_attn_weights(const Matrix& Qh, const Matrix& Kh, size_t seq_len) const {
+    Scalar scale = 1.0f / std::sqrt(static_cast<Scalar>(head_dim_));
+    Matrix scores = (Qh * Kh.transpose()).scale(scale);
+
+    if (causal_mask_) {
+        for (size_t i = 0; i < seq_len; ++i)
+            for (size_t j = i + 1; j < seq_len; ++j)
+                scores.at(i, j) = -1e9f;
+    }
+    return Activation::forward(scores, ActivationType::Softmax);
+}
+
 Tensor3D AttentionLayer::forward(const Tensor3D& input) {
     input_cache_ = input;
     Q_cache_ = input.batched_matmul(W_q_);
@@ -54,10 +65,7 @@ Tensor3D AttentionLayer::forward(const Tensor3D& input) {
 
     size_t batch = input.batch();
     size_t seq_len = input.seq_len();
-    Scalar scale = 1.0f / std::sqrt(static_cast<Scalar>(head_dim_));
-
     concat_output_cache_ = Tensor3D(batch, seq_len, embed_dim_);
-    attn_weights_cache_.assign(batch, std::vector<Matrix>(num_heads_));
 
     for (size_t b = 0; b < batch; ++b) {
         Matrix Qb = Q_cache_.slice_batch(b);
@@ -70,23 +78,10 @@ Tensor3D AttentionLayer::forward(const Tensor3D& input) {
             Matrix Kh = extract_head_cols(Kb, h, head_dim_);
             Matrix Vh = extract_head_cols(Vb, h, head_dim_);
 
-            Matrix scores = (Qh * Kh.transpose()).scale(scale); // seq x seq
-
-            if (causal_mask_) {
-                // -1e9 (bukan -infinity literal) supaya aman secara numerik
-                // lewat max-subtraction di Activation::forward(Softmax)
-                for (size_t i = 0; i < seq_len; ++i)
-                    for (size_t j = i + 1; j < seq_len; ++j)
-                        scores.at(i, j) = -1e9f;
-            }
-
-            Matrix weights = Activation::forward(scores, ActivationType::Softmax);
-            attn_weights_cache_[b][h] = weights;
-
-            Matrix head_out = weights * Vh; // seq x head_dim
+            Matrix weights = compute_attn_weights(Qh, Kh, seq_len); // dipakai lokal, TIDAK disimpan
+            Matrix head_out = weights * Vh;
             write_head_cols(concat, h, head_dim_, head_out);
         }
-
         concat_output_cache_.set_batch(b, concat);
     }
 
@@ -99,7 +94,6 @@ Tensor3D AttentionLayer::backward(const Tensor3D& grad_output) {
     Scalar batch_scalar = static_cast<Scalar>(batch);
     Scalar scale = 1.0f / std::sqrt(static_cast<Scalar>(head_dim_));
 
-    // --- Backprop lewat W_o ---
     Matrix W_o_t = W_o_.transpose();
     grad_W_o_ = Matrix(embed_dim_, embed_dim_, 0.0f);
     Tensor3D grad_concat(batch, seq_len, embed_dim_);
@@ -112,7 +106,6 @@ Tensor3D AttentionLayer::backward(const Tensor3D& grad_output) {
     }
     grad_W_o_ = grad_W_o_.scale(1.0f / batch_scalar);
 
-    // --- Backprop lewat tiap head, lalu Q/K/V projection ---
     grad_W_q_ = Matrix(embed_dim_, embed_dim_, 0.0f);
     grad_W_k_ = Matrix(embed_dim_, embed_dim_, 0.0f);
     grad_W_v_ = Matrix(embed_dim_, embed_dim_, 0.0f);
@@ -133,17 +126,15 @@ Tensor3D AttentionLayer::backward(const Tensor3D& grad_output) {
             Matrix Qh = extract_head_cols(Qb, h, head_dim_);
             Matrix Kh = extract_head_cols(Kb, h, head_dim_);
             Matrix Vh = extract_head_cols(Vb, h, head_dim_);
-            const Matrix& weights = attn_weights_cache_[b][h]; // seq x seq
 
-            Matrix d_head_out = extract_head_cols(grad_concat_b, h, head_dim_); // seq x head_dim
+            // Rekomputasi weights (bukan baca dari cache) — trade-off memori vs compute
+            Matrix weights = compute_attn_weights(Qh, Kh, seq_len);
 
-            // head_out = weights * Vh
-            Matrix dWeights = d_head_out * Vh.transpose();     // seq x seq
-            Matrix dVh = weights.transpose() * d_head_out;     // seq x head_dim
+            Matrix d_head_out = extract_head_cols(grad_concat_b, h, head_dim_);
 
-            // Backward softmax per baris (manual — bukan lewat Activation::derivative,
-            // karena itu sengaja tidak mendukung Softmax berdiri sendiri):
-            // dscore_i = weights_i * (dweights_i - sum_j(dweights_j * weights_j))
+            Matrix dWeights = d_head_out * Vh.transpose();
+            Matrix dVh = weights.transpose() * d_head_out;
+
             Matrix dScores(seq_len, seq_len);
             for (size_t i = 0; i < seq_len; ++i) {
                 Scalar dot = 0.0f;
@@ -151,9 +142,8 @@ Tensor3D AttentionLayer::backward(const Tensor3D& grad_output) {
                 for (size_t j = 0; j < seq_len; ++j)
                     dScores.at(i, j) = weights.at(i, j) * (dWeights.at(i, j) - dot);
             }
-            dScores = dScores.scale(scale); // sesuai scaling 1/sqrt(head_dim) di forward
+            dScores = dScores.scale(scale);
 
-            // scores = Qh * Kh^T
             Matrix dQh = dScores * Kh;
             Matrix dKh = dScores.transpose() * Qh;
 
