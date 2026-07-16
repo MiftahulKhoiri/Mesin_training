@@ -1,5 +1,5 @@
 // ============================================================
-// src/batch_norm_layer.cpp  (DIPERBARUI — hanya signature backward/forward)
+// src/batch_norm_layer.cpp  (LENGKAP)
 // ============================================================
 #include "batch_norm_layer.h"
 #include <cmath>
@@ -25,7 +25,6 @@ Matrix BatchNormLayer::forward(const Matrix& input, bool training) {
 
     if (training) {
         input_cache_ = input;
-
         Matrix mean(1, num_features_, 0.0f);
         Matrix var(1, num_features_, 0.0f);
 
@@ -69,13 +68,10 @@ Matrix BatchNormLayer::forward(const Matrix& input, bool training) {
             }
         }
     }
-
     return output;
 }
 
 Matrix BatchNormLayer::backward(const Matrix& grad_output, bool /*combined_with_loss*/) {
-    // combined_with_loss tidak relevan untuk BatchNorm (bukan layer output/aktivasi),
-    // parameter tetap ada demi kecocokan dengan LayerBase.
     if (input_cache_.rows() == 0) {
         throw std::logic_error("BatchNormLayer::backward: dipanggil tanpa forward(training=true) sebelumnya");
     }
@@ -117,7 +113,6 @@ Matrix BatchNormLayer::backward(const Matrix& grad_output, bool /*combined_with_
                 (n * dxhat - sum_dxhat - x_mu * std_inv * std_inv * sum_dxhat_xmu);
         }
     }
-
     return grad_input;
 }
 
@@ -126,4 +121,30 @@ void BatchNormLayer::update(Scalar learning_rate) {
         gamma_.at(0, j) -= learning_rate * grad_gamma_.at(0, j);
         beta_.at(0, j) -= learning_rate * grad_beta_.at(0, j);
     }
+}
+
+void BatchNormLayer::save(std::ostream& os) const {
+    os.write(reinterpret_cast<const char*>(&momentum_), sizeof(momentum_));
+    os.write(reinterpret_cast<const char*>(&epsilon_), sizeof(epsilon_));
+    gamma_.save(os);
+    beta_.save(os);
+    running_mean_.save(os);
+    running_var_.save(os);
+}
+
+std::unique_ptr<BatchNormLayer> BatchNormLayer::load(std::istream& is) {
+    Scalar momentum, epsilon;
+    is.read(reinterpret_cast<char*>(&momentum), sizeof(momentum));
+    is.read(reinterpret_cast<char*>(&epsilon), sizeof(epsilon));
+    Matrix gamma = Matrix::load(is);
+    Matrix beta = Matrix::load(is);
+    Matrix running_mean = Matrix::load(is);
+    Matrix running_var = Matrix::load(is);
+
+    auto layer = std::make_unique<BatchNormLayer>(gamma.cols(), momentum, epsilon);
+    layer->gamma() = gamma;
+    layer->beta() = beta;
+    layer->running_mean() = running_mean;
+    layer->running_var() = running_var;
+    return layer;
 }
