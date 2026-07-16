@@ -1,5 +1,5 @@
 // ============================================================
-// src/dense_layer.cpp  (DIPERBARUI — hanya signature yang berubah)
+// src/dense_layer.cpp  (LENGKAP)
 // ============================================================
 #include "dense_layer.h"
 #include <cmath>
@@ -22,14 +22,10 @@ DenseLayer::DenseLayer(size_t input_size, size_t output_size, ActivationType act
 }
 
 Matrix DenseLayer::forward(const Matrix& input, bool /*training*/) {
-    // DenseLayer belum punya perilaku berbeda train/inferensi (baru relevan
-    // kalau nanti ditambah Dropout). Parameter tetap ada demi konsistensi LayerBase.
     input_cache_ = input;
-
     Matrix z = input * weights_;
     z = z.add_row_vector(bias_);
     z_cache_ = z;
-
     return Activation::forward(z, activation_);
 }
 
@@ -59,4 +55,22 @@ Matrix DenseLayer::backward(const Matrix& grad_output, bool combined_with_loss) 
 void DenseLayer::update(Scalar learning_rate) {
     weights_.sub_inplace(grad_weights_.scale(learning_rate));
     bias_.sub_inplace(grad_bias_.scale(learning_rate));
+}
+
+void DenseLayer::save(std::ostream& os) const {
+    int act = static_cast<int>(activation_);
+    os.write(reinterpret_cast<const char*>(&act), sizeof(act));
+    weights_.save(os);
+    bias_.save(os);
+}
+
+std::unique_ptr<DenseLayer> DenseLayer::load(std::istream& is) {
+    int act;
+    is.read(reinterpret_cast<char*>(&act), sizeof(act));
+    Matrix w = Matrix::load(is);
+    Matrix b = Matrix::load(is);
+    auto layer = std::make_unique<DenseLayer>(w.rows(), w.cols(), static_cast<ActivationType>(act), 0u);
+    layer->weights() = w;
+    layer->bias() = b;
+    return layer;
 }
