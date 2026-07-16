@@ -1,5 +1,5 @@
 // ============================================================
-// include/attention_layer.h  (FILE BARU)
+// include/attention_layer.h  (DIPERBARUI — attn_weights_cache_ dihapus)
 // ============================================================
 #pragma once
 #include <vector>
@@ -9,11 +9,9 @@
 
 class AttentionLayer {
 public:
-    // causal_mask=true untuk autoregressive/GPT-style (posisi hanya lihat ke belakang);
-    // false untuk encoder-style (lihat seluruh sequence)
     AttentionLayer(size_t embed_dim, size_t num_heads, bool causal_mask, unsigned seed = 42);
 
-    Tensor3D forward(const Tensor3D& input);   // batch x seq x embed_dim -> sama
+    Tensor3D forward(const Tensor3D& input);
     Tensor3D backward(const Tensor3D& grad_output);
     void update(Scalar learning_rate);
 
@@ -25,16 +23,20 @@ private:
     size_t embed_dim_, num_heads_, head_dim_;
     bool causal_mask_;
 
-    Matrix W_q_, W_k_, W_v_, W_o_;             // masing-masing embed_dim x embed_dim
+    Matrix W_q_, W_k_, W_v_, W_o_;
     Matrix grad_W_q_, grad_W_k_, grad_W_v_, grad_W_o_;
 
-    // Cache untuk backward
+    // Cache untuk backward. attn_weights TIDAK di-cache lagi (lihat backward()) —
+    // direkomputasi dari Q_cache_/K_cache_ untuk menghemat memori O(batch*heads*seq^2).
     Tensor3D input_cache_;
-    Tensor3D Q_cache_, K_cache_, V_cache_;      // sebelum split per-head
-    Tensor3D concat_output_cache_;              // hasil gabungan semua head, sebelum W_o
-    std::vector<std::vector<Matrix>> attn_weights_cache_; // [batch][head] -> seq x seq
+    Tensor3D Q_cache_, K_cache_, V_cache_;
+    Tensor3D concat_output_cache_;
 
     static Matrix init_projection_weight(size_t dim, unsigned seed);
     static Matrix extract_head_cols(const Matrix& full, size_t head_idx, size_t head_dim);
     static void write_head_cols(Matrix& full, size_t head_idx, size_t head_dim, const Matrix& head_data);
+
+    // Hitung ulang attention weights (scores -> mask -> softmax) untuk satu head satu batch.
+    // Dipakai baik di forward() maupun backward() supaya logikanya tidak terduplikasi dua cara berbeda.
+    Matrix compute_attn_weights(const Matrix& Qh, const Matrix& Kh, size_t seq_len) const;
 };
