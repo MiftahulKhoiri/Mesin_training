@@ -1,5 +1,5 @@
 # ============================================================
-# demo.py  (DIPERBARUI — load checkpoint, tidak training ulang)
+# demo.py  (LENGKAP)
 # ============================================================
 import os
 import sys
@@ -7,7 +7,7 @@ sys.path.append("build")
 
 import numpy as np
 import ml_manual_cpp as mlc
-from sample_data import encode_text, decode_tokens, VOCAB_SIZE
+from sample_data import encode_text, decode_tokens, generate_mlp_classification_data, VOCAB_SIZE
 
 MLP_CHECKPOINT = "mlp_checkpoint.bin"
 SEQUENCE_CHECKPOINT = "sequence_checkpoint.bin"
@@ -20,10 +20,8 @@ def demo_mlp():
         return
 
     model = mlc.NeuralNetwork.load_checkpoint(MLP_CHECKPOINT)
-
-    from sample_data import generate_mlp_classification_data
     X, y = generate_mlp_classification_data(n_samples=5, seed=99)
-    predictions = model.forward(X, False)  # training=False -> mode inferensi
+    predictions = model.forward(X, False)
 
     for i in range(5):
         print(f"  input={X[i]} -> predicted={predictions[i][0]:.3f}, actual={y[i][0]:.0f}")
