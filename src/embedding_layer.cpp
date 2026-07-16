@@ -1,5 +1,5 @@
 // ============================================================
-// src/embedding_layer.cpp  (FILE BARU)
+// src/embedding_layer.cpp  (LENGKAP)
 // ============================================================
 #include "embedding_layer.h"
 #include <cmath>
@@ -10,8 +10,6 @@ EmbeddingLayer::EmbeddingLayer(size_t vocab_size, size_t embed_dim, size_t max_s
       embedding_table_(vocab_size, embed_dim),
       grad_embedding_table_(vocab_size, embed_dim, 0.0f)
 {
-    // Skala inisialisasi kecil (0.02), umum dipakai untuk embedding di model transformer —
-    // membantu stabilitas awal training dibanding He/Xavier standar
     embedding_table_ = Matrix::random_normal(vocab_size, embed_dim, 0.0f, 0.02f, seed);
     positional_encoding_ = compute_sinusoidal_positional_encoding(max_seq_len, embed_dim);
 }
@@ -61,25 +59,28 @@ void EmbeddingLayer::backward(const Tensor3D& grad_output, const Matrix& token_i
     for (size_t b = 0; b < batch; ++b) {
         for (size_t s = 0; s < seq_len; ++s) {
             size_t token_id = static_cast<size_t>(std::round(token_ids.at(b, s)));
-            // Scatter-add: kalau token yang sama muncul berkali-kali (di sample lain
-            // atau posisi lain), gradiennya diakumulasi, bukan ditimpa
             for (size_t f = 0; f < embed_dim_; ++f) {
                 grad_embedding_table_.at(token_id, f) += grad_output.at(b, s, f);
             }
         }
     }
-    // positional_encoding_ tidak diupdate — fixed/non-learnable
 }
 
 void EmbeddingLayer::update(Scalar learning_rate) {
     embedding_table_.sub_inplace(grad_embedding_table_.scale(learning_rate));
 }
-// ============================================================
-// src/embedding_layer.cpp — TAMBAHAN (masukkan setelah update())
-// ============================================================
+
 void EmbeddingLayer::accumulate_external_grad(const Matrix& grad) {
     if (grad.rows() != vocab_size_ || grad.cols() != embed_dim_) {
         throw std::invalid_argument("EmbeddingLayer::accumulate_external_grad: shape tidak cocok");
     }
     grad_embedding_table_.add_inplace(grad);
+}
+
+void EmbeddingLayer::save(std::ostream& os) const {
+    embedding_table_.save(os);
+}
+
+void EmbeddingLayer::load_weights(std::istream& is) {
+    embedding_table_ = Matrix::load(is);
 }
