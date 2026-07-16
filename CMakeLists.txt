@@ -1,11 +1,15 @@
 # ============================================================
-# CMakeLists.txt  (LENGKAP)
+# CMakeLists.txt  (DIPERBAIKI)
 # ============================================================
 cmake_minimum_required(VERSION 3.15)
 project(ml_manual_cpp LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Wajib untuk shared library di ARM/Android (Termux)
+# Agar semua kode objek dikompilasi dengan -fPIC
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
