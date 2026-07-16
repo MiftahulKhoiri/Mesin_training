@@ -1,13 +1,11 @@
 // ============================================================
-// src/matrix_ops.cpp
+// src/matrix_ops.cpp  (LENGKAP)
 // ============================================================
 #include "matrix_ops.h"
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
 
-// Ukuran blok disetel untuk L1 cache umum (~32KB). Sesuaikan lewat benchmark
-// jika target device (mis. Raspberry Pi) punya cache berbeda.
 static constexpr size_t BLOCK_SIZE = 64;
 
 Matrix::Matrix(size_t rows, size_t cols, Scalar init_val)
@@ -29,24 +27,6 @@ void Matrix::check_same_shape(const Matrix& other, const char* op) const {
     }
 }
 
-// ============================================================
-// src/matrix_ops.cpp — TAMBAHAN
-// ============================================================
-void Matrix::save(std::ostream& os) const {
-    os.write(reinterpret_cast<const char*>(&rows_), sizeof(rows_));
-    os.write(reinterpret_cast<const char*>(&cols_), sizeof(cols_));
-    os.write(reinterpret_cast<const char*>(data_.data()), sizeof(Scalar) * data_.size());
-}
-
-Matrix Matrix::load(std::istream& is) {
-    size_t r, c;
-    is.read(reinterpret_cast<char*>(&r), sizeof(r));
-    is.read(reinterpret_cast<char*>(&c), sizeof(c));
-    Matrix m(r, c);
-    is.read(reinterpret_cast<char*>(m.data()), sizeof(Scalar) * r * c);
-    return m;
-}
-
 Matrix Matrix::operator+(const Matrix& other) const {
     check_same_shape(other, "operator+");
     Matrix result(rows_, cols_);
@@ -61,7 +41,6 @@ Matrix Matrix::operator-(const Matrix& other) const {
     return result;
 }
 
-// --- Matmul: cache-blocked naif, atau OpenBLAS jika tersedia ---
 Matrix Matrix::matmul_blocked(const Matrix& a, const Matrix& b) {
     Matrix result(a.rows_, b.cols_, 0.0f);
     const size_t N = a.rows_, K = a.cols_, M = b.cols_;
@@ -72,7 +51,6 @@ Matrix Matrix::matmul_blocked(const Matrix& a, const Matrix& b) {
             size_t k_max = std::min(kk + BLOCK_SIZE, K);
             for (size_t jj = 0; jj < M; jj += BLOCK_SIZE) {
                 size_t j_max = std::min(jj + BLOCK_SIZE, M);
-
                 for (size_t i = ii; i < i_max; ++i) {
                     for (size_t k = kk; k < k_max; ++k) {
                         Scalar a_ik = a.at(i, k);
@@ -80,9 +58,7 @@ Matrix Matrix::matmul_blocked(const Matrix& a, const Matrix& b) {
                         const Scalar* b_row = &b.data_[b.idx(k, jj)];
                         Scalar* r_row = &result.data_[result.idx(i, jj)];
                         size_t len = j_max - jj;
-                        for (size_t j = 0; j < len; ++j) {
-                            r_row[j] += a_ik * b_row[j];
-                        }
+                        for (size_t j = 0; j < len; ++j) r_row[j] += a_ik * b_row[j];
                     }
                 }
             }
@@ -95,10 +71,8 @@ Matrix Matrix::operator*(const Matrix& other) const {
     if (cols_ != other.rows_) {
         throw std::invalid_argument("Matrix multiply: inner dimensions mismatch");
     }
-
 #ifdef USE_OPENBLAS
     Matrix result(rows_, other.cols_, 0.0f);
-    // sgemm: C = alpha * A*B + beta * C, row-major
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 (int)rows_, (int)other.cols_, (int)cols_,
                 1.0f, data_.data(), (int)cols_,
@@ -119,7 +93,6 @@ Matrix Matrix::hadamard(const Matrix& other) const {
 
 Matrix Matrix::transpose() const {
     Matrix result(cols_, rows_);
-    // blocked transpose supaya lebih cache-friendly untuk matriks besar
     for (size_t ii = 0; ii < rows_; ii += BLOCK_SIZE) {
         size_t i_max = std::min(ii + BLOCK_SIZE, rows_);
         for (size_t jj = 0; jj < cols_; jj += BLOCK_SIZE) {
@@ -206,4 +179,19 @@ void Matrix::print() const {
         }
         std::cout << "\n";
     }
+}
+
+void Matrix::save(std::ostream& os) const {
+    os.write(reinterpret_cast<const char*>(&rows_), sizeof(rows_));
+    os.write(reinterpret_cast<const char*>(&cols_), sizeof(cols_));
+    os.write(reinterpret_cast<const char*>(data_.data()), sizeof(Scalar) * data_.size());
+}
+
+Matrix Matrix::load(std::istream& is) {
+    size_t r, c;
+    is.read(reinterpret_cast<char*>(&r), sizeof(r));
+    is.read(reinterpret_cast<char*>(&c), sizeof(c));
+    Matrix m(r, c);
+    is.read(reinterpret_cast<char*>(m.data()), sizeof(Scalar) * r * c);
+    return m;
 }
