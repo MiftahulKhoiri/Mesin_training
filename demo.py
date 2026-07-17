@@ -1,17 +1,19 @@
 # ============================================================
-# demo.py  (LENGKAP)
+# demo.py  (LENGKAP — baca checkpoint dari folder training/)
 # ============================================================
 import os
 import sys
 sys.path.append("build")
+sys.path.append("data")
 
 import numpy as np
 import ml_manual_cpp as mlc
 from sample_data import generate_mlp_classification_data
 
-MLP_CHECKPOINT = "mlp_checkpoint.bin"
-SEQUENCE_CHECKPOINT = "sequence_checkpoint.bin"
-TOKENIZER_CHECKPOINT = "tokenizer_checkpoint.bin"
+TRAINING_DIR = "training"
+MLP_CHECKPOINT = os.path.join(TRAINING_DIR, "mlp_checkpoint.bin")
+SEQUENCE_CHECKPOINT = os.path.join(TRAINING_DIR, "sequence_checkpoint.bin")
+TOKENIZER_CHECKPOINT = os.path.join(TRAINING_DIR, "tokenizer_checkpoint.bin")
 
 
 def demo_mlp():
@@ -37,7 +39,6 @@ def sample_next_token(logits_last_position, temperature=0.8):
 
 
 def generate(model, prompt_ids, max_new_tokens, max_seq_len, temperature=0.8):
-    """prompt_ids: numpy array (1, N) float32."""
     tokens = prompt_ids.copy()
     for _ in range(max_new_tokens):
         context = tokens[:, -max_seq_len:]
@@ -57,14 +58,17 @@ def demo_sequence():
     model = mlc.SequenceModel.load_checkpoint(SEQUENCE_CHECKPOINT)
 
     prompt_text = "the cat"
-    prompt_ids = tokenizer.encode(prompt_text)  # list[int]
+    prompt_ids = tokenizer.encode(prompt_text)
     prompt_array = np.array(prompt_ids, dtype=np.float32).reshape(1, -1)
 
     generated_array = generate(model, prompt_array, max_new_tokens=60, max_seq_len=32, temperature=0.7)
     generated_ids = [int(round(x)) for x in generated_array[0]]
 
+    generated_bytes = tokenizer.decode(generated_ids)
+    generated_text = generated_bytes.decode("utf-8", errors="replace")
+
     print(f"  prompt   : {prompt_text!r}")
-    print(f"  generated: {tokenizer.decode(generated_ids)!r}")
+    print(f"  generated: {generated_text!r}")
 
 
 if __name__ == "__main__":
