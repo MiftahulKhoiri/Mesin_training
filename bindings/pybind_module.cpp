@@ -15,6 +15,7 @@
 #include "trainer.h"
 #include "sequence_model.h"
 #include "sequence_trainer.h"
+#include "bpe_tokenizer.h"
 
 namespace py = pybind11;
 
@@ -58,7 +59,7 @@ static py::array_t<float> tensor3d_to_numpy(const Tensor3D& t) {
 }
 
 PYBIND11_MODULE(ml_manual_cpp, m) {
-    m.doc() = "ml_manual_cpp: neural network dari nol di C++ (MLP + Transformer), binding Python via pybind11";
+    m.doc() = "ml_manual_cpp: neural network dari nol di C++ (MLP + Transformer + BPE tokenizer), binding Python via pybind11";
 
     py::enum_<ActivationType>(m, "ActivationType")
         .value("ReLU", ActivationType::ReLU)
@@ -148,4 +149,18 @@ PYBIND11_MODULE(ml_manual_cpp, m) {
         .def("fit", [](SequenceTrainer& self, NpFloatArray token_stream) {
             return self.fit(numpy_to_matrix(token_stream));
         });
+
+    py::class_<BPETokenizer>(m, "BPETokenizer")
+        .def(py::init<>())
+        .def("train", &BPETokenizer::train,
+             py::arg("corpus"), py::arg("target_vocab_size"), py::arg("min_frequency") = 2)
+        .def("encode", &BPETokenizer::encode)
+        .def("decode", &BPETokenizer::decode)
+        .def("vocab_size", &BPETokenizer::vocab_size)
+        .def("pad_id", &BPETokenizer::pad_id)
+        .def("bos_id", &BPETokenizer::bos_id)
+        .def("eos_id", &BPETokenizer::eos_id)
+        .def("unk_id", &BPETokenizer::unk_id)
+        .def("save_checkpoint", &BPETokenizer::save_checkpoint)
+        .def_static("load_checkpoint", &BPETokenizer::load_checkpoint);
 }
