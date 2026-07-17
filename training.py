@@ -6,7 +6,7 @@ sys.path.append("build")
 
 import numpy as np
 import ml_manual_cpp as mlc
-from sample_data import generate_mlp_classification_data, generate_toy_token_stream, VOCAB_SIZE
+from sample_data import generate_mlp_classification_data, generate_toy_corpus_text
 
 
 def train_mlp_example():
@@ -35,10 +35,19 @@ def train_mlp_example():
 
 
 def train_sequence_example():
-    token_stream = generate_toy_token_stream(repeat=200)
+    corpus_text = generate_toy_corpus_text(repeat=200)
+
+    # --- Latih tokenizer BPE dari korpus, lalu simpan ---
+    tokenizer = mlc.BPETokenizer()
+    tokenizer.train(corpus_text, target_vocab_size=300, min_frequency=2)
+    tokenizer.save_checkpoint("tokenizer_checkpoint.bin")
+    print(f"  tokenizer dilatih: vocab_size={tokenizer.vocab_size()}, checkpoint disimpan: tokenizer_checkpoint.bin")
+
+    token_ids = tokenizer.encode(corpus_text)
+    token_stream = np.array(token_ids, dtype=np.float32).reshape(1, -1)
 
     model = mlc.SequenceModel(
-        vocab_size=VOCAB_SIZE,
+        vocab_size=tokenizer.vocab_size(),
         embed_dim=32,
         num_heads=4,
         ff_hidden_dim=64,
