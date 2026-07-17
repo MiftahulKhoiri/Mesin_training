@@ -7,10 +7,11 @@ sys.path.append("build")
 
 import numpy as np
 import ml_manual_cpp as mlc
-from sample_data import encode_text, decode_tokens, generate_mlp_classification_data, VOCAB_SIZE
+from sample_data import generate_mlp_classification_data
 
 MLP_CHECKPOINT = "mlp_checkpoint.bin"
 SEQUENCE_CHECKPOINT = "sequence_checkpoint.bin"
+TOKENIZER_CHECKPOINT = "tokenizer_checkpoint.bin"
 
 
 def demo_mlp():
@@ -36,6 +37,7 @@ def sample_next_token(logits_last_position, temperature=0.8):
 
 
 def generate(model, prompt_ids, max_new_tokens, max_seq_len, temperature=0.8):
+    """prompt_ids: numpy array (1, N) float32."""
     tokens = prompt_ids.copy()
     for _ in range(max_new_tokens):
         context = tokens[:, -max_seq_len:]
@@ -47,17 +49,22 @@ def generate(model, prompt_ids, max_new_tokens, max_seq_len, temperature=0.8):
 
 def demo_sequence():
     print("\n=== Demo SequenceModel (text generation) ===")
-    if not os.path.exists(SEQUENCE_CHECKPOINT):
-        print(f"  Checkpoint {SEQUENCE_CHECKPOINT} tidak ditemukan — jalankan training.py dulu.")
+    if not os.path.exists(SEQUENCE_CHECKPOINT) or not os.path.exists(TOKENIZER_CHECKPOINT):
+        print("  Checkpoint model/tokenizer tidak ditemukan — jalankan training.py dulu.")
         return
 
+    tokenizer = mlc.BPETokenizer.load_checkpoint(TOKENIZER_CHECKPOINT)
     model = mlc.SequenceModel.load_checkpoint(SEQUENCE_CHECKPOINT)
 
-    prompt = encode_text("the cat")
-    generated = generate(model, prompt, max_new_tokens=60, max_seq_len=32, temperature=0.7)
+    prompt_text = "the cat"
+    prompt_ids = tokenizer.encode(prompt_text)  # list[int]
+    prompt_array = np.array(prompt_ids, dtype=np.float32).reshape(1, -1)
 
-    print(f"  prompt   : {decode_tokens(prompt)!r}")
-    print(f"  generated: {decode_tokens(generated)!r}")
+    generated_array = generate(model, prompt_array, max_new_tokens=60, max_seq_len=32, temperature=0.7)
+    generated_ids = [int(round(x)) for x in generated_array[0]]
+
+    print(f"  prompt   : {prompt_text!r}")
+    print(f"  generated: {tokenizer.decode(generated_ids)!r}")
 
 
 if __name__ == "__main__":
