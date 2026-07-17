@@ -11,23 +11,12 @@ def generate_mlp_classification_data(n_samples=500, n_features=4, seed=42):
     return X, y
 
 
+# Toy corpus untuk demo SequenceModel + BPETokenizer. Pola berulang sederhana
+# supaya model kecil bisa belajar sesuatu dalam training singkat.
 _TOY_SENTENCE = "the cat sat on the mat and the dog ran to the tree. "
 
-CHAR_VOCAB = sorted(set(_TOY_SENTENCE))
-CHAR_TO_ID = {ch: i for i, ch in enumerate(CHAR_VOCAB)}
-ID_TO_CHAR = {i: ch for i, ch in enumerate(CHAR_VOCAB)}
-VOCAB_SIZE = len(CHAR_VOCAB)
 
-
-def encode_text(text):
-    ids = [CHAR_TO_ID[ch] for ch in text if ch in CHAR_TO_ID]
-    return np.array(ids, dtype=np.float32).reshape(1, -1)
-
-
-def decode_tokens(ids):
-    return "".join(ID_TO_CHAR[int(round(i))] for i in np.ravel(ids))
-
-
-def generate_toy_token_stream(repeat=200):
-    text = _TOY_SENTENCE * repeat
-    return encode_text(text)
+def generate_toy_corpus_text(repeat=200):
+    """Kembalikan teks mentah (string) — dipakai untuk melatih BPETokenizer
+    dan sebagai sumber token_stream setelah di-encode."""
+    return _TOY_SENTENCE * repeat
